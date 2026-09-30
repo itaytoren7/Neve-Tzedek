@@ -70,6 +70,7 @@ main{flex:1; min-height:0; display:flex; gap:10px; position:relative}
 #legend{bottom:12px; right:12px; padding:9px 12px; display:flex; flex-direction:column; gap:3px; font-size:12px}
 #legend div{display:flex; align-items:center; gap:7px}
 #legend .sw{margin:0}
+#legend div[hidden]{display:none}
 #note{bottom:12px; left:12px; padding:6px 10px; font-size:11.5px; color:var(--muted); max-width:min(46%,380px)}
 #modeTag{top:12px; right:12px; padding:8px 12px; font-size:12.5px; max-width:min(70%,360px)}
 #modeTag b{display:block; font-size:13.5px}
@@ -78,6 +79,22 @@ main{flex:1; min-height:0; display:flex; gap:10px; position:relative}
 #tip .k{color:var(--muted)}
 #tip .n{font-family:var(--font-mono)}
 #railToggle{display:none}
+/* pedestrian walk */
+.walk-side{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px}
+.walk-side button{font:inherit; font-size:12px; padding:5px 6px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--fg); cursor:pointer}
+.walk-side button[aria-pressed="true"]{border-color:var(--accent); background:var(--accent-soft); color:var(--accent); font-weight:600}
+.walk-hint{font-size:11.5px; color:var(--muted); margin:8px 0 0}
+#walkbar{bottom:12px; left:50%; transform:translateX(-50%); padding:8px 10px; display:none; flex-direction:column; align-items:center; gap:6px; max-width:calc(100% - 24px); box-sizing:border-box}
+#walkbar[data-on="true"]{display:flex}
+#walkbar .where{font-size:12.5px; font-weight:600; text-align:center}
+#walkbar .where small{display:block; font-weight:400; color:var(--muted); font-size:11.5px}
+#walkbar .pad{display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center}
+#walkbar .pad button{font:inherit; font-size:15px; line-height:1; min-width:40px; height:36px; padding:0 10px; border-radius:9px; border:1px solid var(--line); background:var(--surface-2); color:var(--fg); cursor:pointer; touch-action:none; user-select:none; -webkit-user-select:none}
+#walkbar .pad button:active,#walkbar .pad button.held{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+#walkbar .pad .exit{font-size:12.5px; font-weight:600}
+#walkbar button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+#stage[data-walk="true"] #legend,#stage[data-walk="true"] #note{display:none}
+#stage[data-walk="true"] canvas{cursor:grab}
 /* labels */
 .lbl{font-family:var(--font-body); font-size:12px; font-weight:600; color:#1b221e; background:rgba(250,251,248,.88); border:1px solid rgba(0,0,0,.12); border-radius:6px; padding:2px 7px; white-space:nowrap; direction:rtl}
 .lbl.street{background:rgba(38,44,41,.78); color:#f4f6f3; border-color:transparent; font-weight:500; letter-spacing:.02em}
@@ -158,7 +175,10 @@ a{color:var(--accent)}
           <button type="button" data-mode="existing" aria-pressed="true"><span>מצב קיים</span><small>קומה אחת, כ-475 מ״ר, 5.6 מ׳</small></button>
           <button type="button" data-mode="altC" aria-pressed="false"><span>חלופה ג׳: שימור + תוספת</span><small>קומה + עליית גג, כ-420 מ״ר</small></button>
           <button type="button" data-mode="envelope" aria-pressed="false"><span>מעטפת הזכויות</span><small>210% · 2 קומות + גג · עד כ-13 מ׳</small></button>
+          <button type="button" data-mode="mixA" aria-pressed="false"><span>תמהיל א׳: מסחר ב-47, דירות גן ב-48</span><small>8 דירות: 2 בקרקע, 4 בקומה, 2 בגג</small></button>
+          <button type="button" data-mode="mixB" aria-pressed="false"><span>תמהיל ב׳: מסחר בשתי החלקות</span><small>6 דירות מעל המסחר</small></button>
         </div>
+        <label class="lay" style="margin-top:8px"><input type="checkbox" id="L_solo">רק המבנה, בלי הסביבה</label>
       </div>
       <div class="card">
         <h3>שכבות</h3>
@@ -181,6 +201,20 @@ a{color:var(--accent)}
           <button class="chip" type="button" data-view="top">מבט על</button>
         </div>
       </div>
+      <div class="card">
+        <h3>הליכה ברחוב · גובה עיניים</h3>
+        <div class="views" id="walkStreets">
+          <button class="chip" type="button" data-street="0">שבזי</button>
+          <button class="chip" type="button" data-street="1">ר׳ יהודה חסיד</button>
+          <button class="chip" type="button" data-street="2">אחד העם</button>
+          <button class="chip" type="button" data-street="3">תחכמוני</button>
+        </div>
+        <div class="walk-side" id="walkSide" role="group" aria-label="איזו מדרכה">
+          <button type="button" data-side="inner" aria-pressed="true">מדרכה צמודה למבנה</button>
+          <button type="button" data-side="outer" aria-pressed="false">מדרכה ממול</button>
+        </div>
+        <p class="walk-hint">חצים או W/S להליכה, A/D או גרירה להסתכלות. Shift להליכה מהירה.</p>
+      </div>
       <div class="card time">
         <h3>שמש · 29 בספטמבר</h3>
         <div class="row"><span>שעה</span><b id="tval">15:30</b></div>
@@ -197,9 +231,25 @@ a{color:var(--accent)}
         <div><span class="sw" style="background:var(--p48)"></span>חלקה 48 · 237 מ״ר</div>
         <div><span class="sw" style="background:var(--pres)"></span>מבנה לשימור (תכנית 3866)</div>
         <div><span class="sw" style="background:var(--add)"></span>תוספת מוצעת / גג רעפים</div>
+        <div class="mixleg" hidden><span class="sw" style="background:#e0a33b"></span>מסחר</div>
+        <div class="mixleg" hidden><span class="sw" style="background:#6aa84f"></span>דירת קרקע (גן)</div>
+        <div class="mixleg" hidden><span class="sw" style="background:#2f8f83"></span>דירה בקומה החדשה</div>
+        <div class="mixleg" hidden><span class="sw" style="background:#8a6fb0"></span>דירה בעליית הגג</div>
+        <div class="mixleg" hidden><span class="sw" style="background:#7c8580"></span>מדרגות ומעלית</div>
       </div>
       <div class="ov" id="note">הדמיה עקרונית מנתוני GIS של העירייה ו-Street View. אינה מדידה ואינה תכנון אדריכלי.</div>
       <div class="ov" id="tip"></div>
+      <div class="ov" id="walkbar" data-on="false" aria-label="שליטה בהליכה">
+        <div class="where" id="walkWhere">—</div>
+        <div class="pad">
+          <button type="button" data-hold="turnR" aria-label="פנייה ימינה">↻</button>
+          <button type="button" data-hold="back" aria-label="אחורה">▼</button>
+          <button type="button" data-hold="fwd" aria-label="קדימה">▲</button>
+          <button type="button" data-hold="turnL" aria-label="פנייה שמאלה">↺</button>
+          <button type="button" id="walkFace" class="exit" aria-label="להסתכל על המבנה">אל המבנה</button>
+          <button type="button" class="exit" id="walkExit">יציאה</button>
+        </div>
+      </div>
     </div>
 
     <section id="drawer" hidden aria-label="דוח">
@@ -222,6 +272,30 @@ a{color:var(--accent)}
         <div class="qa"><div class="q">תב״עות רלוונטיות</div><div class="a">3866 היא התכנית הקובעת</div><div class="d">וגם: 5000 (מתאר), 5500 (עדכון מתאר, הופקדה 01/2026), 2650ב (נספח ה׳ — תמריצים), ע/ע1 (מרתפים), תמ״א 70 (אזור שימור מקומי — בלי תוספות מטרו).</div></div>
         <div class="qa"><div class="q">האם מוגדר לשימור</div><div class="a"><span class="pill yes">כן</span>מבנה לשימור לפי 3866, בלי הגבלות מחמירות</div><div class="d">פוליגון השימור מכסה את כל המבנה בשתי החלקות. בדף הזכויות של חלקה 48 ההתראה לא מופיעה — לברר.</div></div>
         <div class="qa"><div class="q">תוספת או הריסה</div><div class="a"><span class="pill yes">תוספת</span><span class="pill no">הריסה</span></div><div class="d">מותרת תוספת בתיאום עם מחלקת השימור ובתנאי שיפוץ כל המבנה (6.2.1). הריסה אסורה, פרט לחלקים לא מקוריים. אם אי אפשר להוסיף — תמריצים לפי נספח ה׳ של 2650ב, ומענק של עד 50,000 ₪ ליחידה מקרן השימור.</div></div>
+        <div class="qa"><div class="q">תוספת זכויות בגלל השימור</div><div class="a"><span class="pill no">אין בונוס אחוזים</span>אותם 210% כמו מגרש רגיל; ההקלות הן בגובה, בתכסית ובגמישות</div><div class="d">תכנית 3866 לא נותנת אחוזי בנייה נוספים למבנה לשימור. מה שהשימור כן מוסיף:
+          <ul>
+            <li><b>גובה:</b> על קומה קיימת גבוהה מוסיפים את ההפרש מעל 3.30 מ׳ (6.1.3). כאן כ-13.1 מ׳ לרכס במקום 11.1 מ׳, וזה מה שמאפשר קומה מלאה מעל האולם הקיים.</li>
+            <li><b>תכסית:</b> הקיים (כ-100%) נשאר למרות מגבלת 80% (6.1.2), ומותרת עליית גג גדולה מ-70% (5.6).</li>
+            <li><b>חריגות מתועדות:</b> גובה, תכסית, קווי בניין ומרתפים לפי המצב המקורי, אם תיק התיעוד מוכיח אותו (6.2.1).</li>
+            <li><b>דירות קטנות יותר:</b> ממוצע 65 מ״ר במקום 70 מ״ר (4.1.2ה), כלומר אפשר יותר דירות מאותו שטח.</li>
+            <li><b>חניה:</b> אפשר פטור מלא (6.7.8), בלי תשלום לקרן חניה.</li>
+            <li><b>שימושים:</b> הוועדה רשאית להרחיב אותם בהליך פרסום (4.1.1ה).</li>
+            <li><b>כסף:</b> מענק עד 50,000 ₪ לכל יחידה קיימת מקרן השימור.</li>
+          </ul>
+          תמריצים לפי נספח ה׳ של 2650ב ניתנים רק אם אי אפשר לממש את הזכויות, ובשיקול דעת. ניוד זכויות חל רק על מבנים בהגבלות מחמירות, ותמ״א 70 לא מוסיפה כאן כלום. סה״כ התוספת האפשרית: כ-518 מ״ר מעל הקרקע (993 פחות כ-475 קיימים) ועד 3 קומות מרתף.</div></div>
+        <div class="qa"><div class="q">המגבלות על מבנה לשימור</div><div class="a"><span class="pill mid">הרבה תנאים</span>אין הריסה; כל תוספת מחייבת שימור של כל המבנה</div><div class="d">
+          <ul>
+            <li><b>הריסה אסורה</b>, חוץ מחלקים לא מקוריים שתיק התיעוד מאשר (6.2.1ב).</li>
+            <li><b>תיק תיעוד</b> מאושר במחלקת השימור הוא תנאי לכל היתר.</li>
+            <li><b>שיפוץ כל המבנה</b> והסרת תוספות לא מקוריות הם תנאי לכל תוספת. תעודת גמר רק אחרי שימור בפועל (6.11.7).</li>
+            <li><b>היקף ומיקום התוספת</b> נקבעים מול מחלקת השימור: נסיגות מהחזיתות ונראות מהרחוב. בפועל ייתכן פחות מהמקסימום.</li>
+            <li><b>חיזוק:</b> תוספת על מבנה שלא עומד בת״י 413 מחייבת חיזוק כולו (6.11.9), ואלמנטי החיזוק לא יבלטו מהחזיתות.</li>
+            <li><b>עיצוב:</b> טיח חלק, גג רעפי חרס בשיפוע 40%–50%, רכס מקביל לרחוב, תריסי עץ, מעקות ברזל, פתחים עד 60% מרוחב החזית.</li>
+            <li><b>חניה:</b> רמפה לחניון אסורה (6.7.7), ומשבזי אסורה כניסה לחניה.</li>
+            <li><b>מרתפים</b> מותרים עד גבול המגרש, בכפוף לאישור מחלקת השימור (6.6.2).</li>
+            <li><b>בלי מסלולי תמ״א:</b> תמ״א 38 פקעה, תמ״א 40 (ממ״ד) לא חלה על אתרי שימור, ותמ״א 70 לא מוסיפה צפיפות.</li>
+            <li><b>פיצויים:</b> המועד הרגיל לתביעה לפי סעיף 197 חלף בערך בינואר 2021. נשארת רק בקשת הארכה, לבדוק עם עורך דין.</li>
+          </ul></div></div>
       </div>
       <div class="pane" data-pane="alts" hidden>
         <h2>השוואת חלופות</h2>
@@ -600,6 +674,48 @@ addL.push(label('נסיגה של כ-3 מ׳ מהחזיתות', 'addl', new THREE.
 addL.push(label('+' + roofC.yR.toFixed(1) + ' מ׳ רכס', 'dim', new THREE.Vector3(roofC.r1 + 2.2, roofC.yR + 0.9, roofC.vm), blockAdd));
 addL.push(label('+' + (AF + AH).toFixed(1) + ' מ׳ תחילת שיפוע', 'dim', new THREE.Vector3(AU1 + 2.6, AF + AH, AV1 + 0.8), blockAdd));
 
+// ---------- unit mixes (schematic massing diagram over the cut ground floor) ----------
+// Parcel boundary at u ≈ 0.15 (47: u < 0, 48: u > 0). Upper floor and attic follow the altC addition volume.
+const MIX_COL = { shop: 0xe0a33b, garden: 0x6aa84f, apt: 0x2f8f83, attic: 0x8a6fb0, core: 0x7c8580 };
+const mixMat = c => new THREE.MeshStandardMaterial({ color: c, transparent: true, opacity: 0.5, roughness: 0.8, depthWrite: false, side: THREE.DoubleSide });
+const MIXM = {}; Object.keys(MIX_COL).forEach(k => { MIXM[k] = mixMat(MIX_COL[k]); });
+const blockMix = new THREE.Group(); block.add(blockMix);
+const MIX = { mixA: new THREE.Group(), mixB: new THREE.Group() };
+Object.values(MIX).forEach(g => blockMix.add(g));
+function unit(g, kind, u0, u1, v0, v1, y0, h, text){
+  const m = box(u1 - u0, h, v1 - v0, MIXM[kind], (u0 + u1) / 2, y0 + h / 2, (v0 + v1) / 2, g, false); m.renderOrder = 3; m.receiveShadow = false;
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: MIX_COL[kind] })); e.position.copy(m.position); g.add(e);
+  if (text) label(text, 'room', new THREE.Vector3((u0 + u1) / 2, y0 < 1 ? 1.2 : y0 + h * 0.55, (v0 + v1) / 2), g);
+  return m;
+}
+const GF_H = 4.9, UF0 = AF + 0.05, UF_H = AH - 0.15, AT0 = AF + AH + 0.25, AT_H = 2.7;
+const CU0 = -1.7, CU1 = 1.9, CV0 = -1.6, CV1 = 1.6;          // shared stair + lift core on the parcel line (assumption)
+function core(g){ unit(g, 'core', CU0, CU1, CV0, CV1, 0.05, AT0 + AT_H - 0.05, null); }
+function upperFloors(g, n0){
+  // new floor: 4 flats (2 per parcel); attic: 2 flats (1 per parcel)
+  unit(g, 'apt', AU0, CU0 - 0.1, AV0, -0.05, UF0, UF_H, 'דירה ' + (n0) + ' · כ-62 מ״ר');
+  unit(g, 'apt', AU0, CU0 - 0.1, 0.05, AV1, UF0, UF_H, 'דירה ' + (n0 + 1) + ' · כ-62 מ״ר');
+  unit(g, 'apt', CU1 + 0.1, AU1, AV0, -0.05, UF0, UF_H, 'דירה ' + (n0 + 2) + ' · כ-62 מ״ר');
+  unit(g, 'apt', CU1 + 0.1, AU1, 0.05, AV1, UF0, UF_H, 'דירה ' + (n0 + 3) + ' · כ-62 מ״ר');
+  unit(g, 'attic', AU0 + 1.0, CU0 - 0.1, AV0 + 1.6, AV1 - 1.6, AT0, AT_H, 'דירה ' + (n0 + 4) + ' · כ-75 מ״ר');
+  unit(g, 'attic', CU1 + 0.1, AU1 - 1.0, AV0 + 1.6, AV1 - 1.6, AT0, AT_H, 'דירה ' + (n0 + 5) + ' · כ-75 מ״ר');
+}
+// footprint of the existing hall per parcel (approximate, inset from the facades)
+const G47 = [-12.0, -0.05], G48 = [0.35, 11.7], GV = [-7.4, 8.2];
+{ // Mix A: shop on 47, two ground-floor ("garden") flats on 48, six flats above
+  const g = MIX.mixA; core(g);
+  unit(g, 'shop', G47[0], Math.min(G47[1], CU0 - 0.1), GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 47<span class="s">כ-215 מ״ר</span>');
+  unit(g, 'garden', CU1 + 0.1, G48[1], GV[0], 0.3, 0.05, GF_H, 'דירת גן 1 · כ-105 מ״ר');
+  unit(g, 'garden', CU1 + 0.1, G48[1], 0.5, GV[1], 0.05, GF_H, 'דירת גן 2 · כ-105 מ״ר');
+  upperFloors(g, 3);
+}
+{ // Mix B: shops on both parcels, six flats above
+  const g = MIX.mixB; core(g);
+  unit(g, 'shop', G47[0], CU0 - 0.1, GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 47<span class="s">כ-215 מ״ר</span>');
+  unit(g, 'shop', CU1 + 0.1, G48[1], GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 48<span class="s">כ-215 מ״ר</span>');
+  upperFloors(g, 1);
+}
+
 // ---------- rights envelope ----------
 {
   const EY = 9.1;
@@ -643,10 +759,15 @@ const state = { mode: 'existing', cut: false };
 const MODE_TEXT = {
   existing: ['מצב קיים', 'מבנה שימור בן קומה אחת על שתי החלקות. גרירה לסיבוב, גלגלת לזום, לחיצה על מבנה לפרטים.'],
   altC: ['חלופה ג׳: שימור + תוספת', 'קומה חדשה בנסיגה מהחזיתות ועליית גג ברעפי חרס, מעל קומת מסחר משוחזרת. כ-6 דירות, הנחת עבודה.'],
-  envelope: ['מעטפת הזכויות', 'הנפח המקסימלי לפי 3866: עד כ-993 מ״ר מעל הקרקע, שיפוע גג מ-9.1 מ׳ ורכס עד כ-13.1 מ׳.']
+  envelope: ['מעטפת הזכויות', 'הנפח המקסימלי לפי 3866: עד כ-993 מ״ר מעל הקרקע, שיפוע גג מ-9.1 מ׳ ורכס עד כ-13.1 מ׳.'],
+  mixA: ['תמהיל א׳: מסחר ב-47, דירות גן ב-48', 'מסחר בקומת הקרקע של חלקה 47, שתי דירות קרקע בחלקה 48, ומעליהן 4 דירות בקומה החדשה ו-2 בעליית הגג. 8 דירות. תרשים נפחים, לא תכנון.'],
+  mixB: ['תמהיל ב׳: מסחר בשתי החלקות', 'כל קומת הקרקע מסחר, ומעליה 4 דירות בקומה החדשה ו-2 בעליית הגג. 6 דירות בנפח של חלופה ג׳; 8 דורשות את המעטפת המלאה. תרשים נפחים, לא תכנון.']
 };
+const isMix = () => state.mode === 'mixA' || state.mode === 'mixB';
 function applyMode(){
   blockAdd.visible = state.mode === 'altC';
+  MIX.mixA.visible = state.mode === 'mixA'; MIX.mixB.visible = state.mode === 'mixB';
+  document.querySelectorAll('#legend .mixleg').forEach((d, i) => { d.hidden = !isMix() || (i === 1 && state.mode !== 'mixA'); });
   parcelLbl.visible = state.mode === 'existing' && !state.cut;
   G.envelope.visible = blockEnv.visible = state.mode === 'envelope';
   document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode)));
@@ -656,20 +777,29 @@ function applyMode(){
 }
 function setCut(on){
   state.cut = on;
-  walls.forEach(w => { w.scale.y = on ? CUT_H : WALL_H; w.material = on ? wallMatsCut : wallMatsFull; });
-  upper.forEach(u => u.visible = !on);
-  G.roofs.visible = !on; blockRoof.visible = !on && state.mode !== 'altC';
-  blockInt.visible = G.interior.visible = on;
+  const low = on || isMix();                       // unit mixes are drawn over the cut-down ground floor
+  walls.forEach(w => { w.scale.y = low ? CUT_H : WALL_H; w.material = low ? wallMatsCut : wallMatsFull; });
+  upper.forEach(u => u.visible = !low);
+  G.roofs.visible = !low; blockRoof.visible = !low && state.mode !== 'altC';
+  blockInt.visible = G.interior.visible = on && !isMix();
   parcelLbl.visible = state.mode === 'existing' && !on;
   if (on && state.mode === 'altC') blockAdd.visible = false; else if (state.mode === 'altC') blockAdd.visible = true;
 }
+const chk = id => document.getElementById(id).checked;
 function bind(id, fn){ const el = document.getElementById(id); el.addEventListener('change', () => fn(el.checked)); fn(el.checked); }
 bind('L_cut', v => { setCut(v); });
 bind('L_parcels', v => { G.parcels.visible = v; });
-bind('L_pres', v => { G.pres.visible = v; pickables.forEach(m => { if (m.userData.kind === 'nb' && m.userData.pres) m.material[1] = v ? MAT.nbWallPres : MAT.nbWall; }); });
-bind('L_nb', v => { G.nb.visible = v; G.pres.visible = v && document.getElementById('L_pres').checked; });
+bind('L_pres', v => { G.pres.visible = v && !chk('L_solo') && chk('L_nb'); pickables.forEach(m => { if (m.userData.kind === 'nb' && m.userData.pres) m.material[1] = v ? MAT.nbWallPres : MAT.nbWall; }); });
+function context(){
+  // "only the building" hides neighbours, preservation outlines and trees without touching their own checkboxes
+  const solo = chk('L_solo');
+  G.nb.visible = !solo && chk('L_nb'); G.pres.visible = G.nb.visible && chk('L_pres');
+  const tr = !solo && chk('L_trees'); G.trees.visible = tr; treeList.forEach(t => t.visible = tr);
+}
+bind('L_nb', context);
 bind('L_streets', v => { G.streets.visible = v; });
-bind('L_trees', v => { G.trees.visible = v; treeList.forEach(t => t.visible = v); });
+bind('L_trees', context);
+bind('L_solo', context);
 bind('L_dims', v => { G.dims.visible = v; });
 bind('L_base', v => { blockBase.visible = v; MAT.ground.transparent = v; MAT.ground.opacity = v ? 0.45 : 1; MAT.ground.depthWrite = !v; MAT.ground.needsUpdate = true; controls.maxPolarAngle = v ? Math.PI * 0.62 : Math.PI * 0.49; });
 document.querySelectorAll('#modes button').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; applyMode(); }));
@@ -702,7 +832,162 @@ function fly(k){
   anim = { s: performance.now(), p0: camera.position.clone(), p1: pos, t0: controls.target.clone(), t1: tgt, f0: camera.fov, f1: fov };
   document.querySelectorAll('#views .chip').forEach(c => c.classList.toggle('on', c.dataset.view === k));
 }
-document.querySelectorAll('#views .chip').forEach(c => c.addEventListener('click', () => fly(c.dataset.view)));
+document.querySelectorAll('#views .chip').forEach(c => c.addEventListener('click', () => { if (walk.on) exitWalk(false); fly(c.dataset.view); }));
+
+// ---------- pedestrian walk (eye level, on the sidewalks around the block) ----------
+// Street centre-line corners of the block (data/gis/streets.json, metres): edge i runs corner i -> i+1.
+const BLK = [[-21.2, 0], [6.3, 19.9], [22.0, -1.6], [-5.8, -22.4]];
+const BLK_ST = [['שבזי', 4.6], ['רבי יהודה חסיד', 5.6], ['אחד העם', 6.6], ['תחכמוני', 5.6]];
+const EYE = 1.65, WALK_V = 1.4, TURN_V = 1.3;
+const BLK_C = centroid(BLK);
+const obstacles = GIS.B.map(b => ({ r: dm(b[7]), c: b[0] === MAIN_ID ? 1.1 : 0.7 })).filter(o => o.r.length > 2);   // the main facade has pilasters and sills beyond the footprint
+const segD = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1]; const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+// keep the eye clear of walls (sidewalks here are only ~1.2–1.5 m wide, so near a facade the walker steps toward the kerb)
+const blocked = p => obstacles.some(o => inside(p, o.r) || o.r.some((a, i) => segD(p, a, o.r[(i + 1) % o.r.length]) < o.c));
+function buildLoop(outer){
+  // offset each street centre-line to the middle of the sidewalk, on the block side (inner) or the far side (outer)
+  const lines = BLK.map((a, i) => {
+    const b = BLK[(i + 1) % 4], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+    let nx = -dy / L, ny = dx / L;
+    if ((BLK_C[0] - (a[0] + b[0]) / 2) * nx + (BLK_C[1] - (a[1] + b[1]) / 2) * ny < 0){ nx = -nx; ny = -ny; }   // inward
+    const half = BLK_ST[i][1] / 2, off = (half + (outer ? 0.9 : 0.45)) * (outer ? -1 : 1);
+    return { p: [a[0] + nx * off, a[1] + ny * off], d: [dx / L, dy / L], road: outer ? [nx, ny] : [-nx, -ny] };
+  });
+  const isect = (l1, l2) => { const den = l1.d[0] * l2.d[1] - l1.d[1] * l2.d[0]; const t = ((l2.p[0] - l1.p[0]) * l2.d[1] - (l2.p[1] - l1.p[1]) * l2.d[0]) / den; return [l1.p[0] + l1.d[0] * t, l1.p[1] + l1.d[1] * t]; };
+  const C = lines.map((l, i) => isect(lines[(i + 3) % 4], l));
+  let pts = [];
+  lines.forEach((l, i) => {
+    const a = C[i], b = C[(i + 1) % 4], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(2, Math.ceil(L / 0.5));
+    for (let k = 0; k < n; k++){
+      const p = [a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n];
+      // where a facade reaches the kerb, step off toward the road edge instead of walking through the wall
+      for (let m = 0; m < 16 && blocked(p); m++){ p[0] += l.road[0] * 0.1; p[1] += l.road[1] * 0.1; }
+      pts.push({ p, st: i });
+    }
+  });
+  for (let pass = 0; pass < 3; pass++){
+    pts = pts.map((q, i) => { const a = pts[(i + pts.length - 1) % pts.length].p, b = pts[(i + 1) % pts.length].p; return { p: [(a[0] + 2 * q.p[0] + b[0]) / 4, (a[1] + 2 * q.p[1] + b[1]) / 4], st: q.st }; });
+  }
+  const cum = [0];
+  for (let i = 1; i <= pts.length; i++){ const a = pts[i - 1].p, b = pts[i % pts.length].p; cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+  return { pts, cum, len: cum[pts.length] };
+}
+const LOOPS = { inner: buildLoop(false), outer: buildLoop(true) };
+const walk = { on: false, side: 'inner', s: 0, yaw: 0, pitch: 0.06, keys: {}, hold: {}, last: 0, street: 0 };
+function sample(loop, s){
+  s = ((s % loop.len) + loop.len) % loop.len;
+  let lo = 0, hi = loop.pts.length;
+  while (hi - lo > 1){ const mid = (lo + hi) >> 1; if (loop.cum[mid] <= s) lo = mid; else hi = mid; }
+  const a = loop.pts[lo], b = loop.pts[(lo + 1) % loop.pts.length], seg = loop.cum[lo + 1] - loop.cum[lo] || 1, t = (s - loop.cum[lo]) / seg;
+  const e = a.p[0] + (b.p[0] - a.p[0]) * t, n = a.p[1] + (b.p[1] - a.p[1]) * t;
+  const tl = Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1]) || 1;
+  return { e, n, st: a.st, te: (b.p[0] - a.p[0]) / tl, tn: (b.p[1] - a.p[1]) / tl };
+}
+const yawOf = (de, dn) => Math.atan2(-dn, de);                        // world x = e, world z = -n
+const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
+function lookDir(){ return new THREE.Vector3(Math.cos(walk.yaw) * Math.cos(walk.pitch), Math.sin(walk.pitch), Math.sin(walk.yaw) * Math.cos(walk.pitch)); }
+function faceBuilding(q, strong){
+  // look along the street, turned toward the building; the far sidewalk (or the button) turns more
+  const be = BLK_C[0] - q.e, bn = BLK_C[1] - q.n, bl = Math.hypot(be, bn);
+  const k = strong ? (walk.side === 'outer' ? 3 : 1.4) : (walk.side === 'outer' ? 1.6 : 0.3);
+  const sgn = walk.dir || 1;
+  walk.yaw = yawOf(q.te * sgn + be / bl * k, q.tn * sgn + bn / bl * k); walk.pitch = strong ? 0.22 : (walk.side === 'outer' ? 0.14 : 0.08);
+}
+const walkbar = document.getElementById('walkbar'), walkWhere = document.getElementById('walkWhere');
+function updateWhere(q){
+  const nm = BLK_ST[q.st][0];
+  if (walk.street === q.st && walkWhere.dataset.side === walk.side) return;
+  walk.street = q.st; walkWhere.dataset.side = walk.side;
+  walkWhere.innerHTML = 'רחוב ' + nm + '<small>' + (walk.side === 'outer' ? 'המדרכה ממול' : 'המדרכה הצמודה למבנה') + ' · גובה עיניים ' + EYE.toFixed(2) + ' מ׳</small>';
+  document.querySelectorAll('#walkStreets .chip').forEach(c => c.classList.toggle('on', +c.dataset.street === q.st));
+}
+function startWalk(st){
+  const loop = LOOPS[walk.side];
+  const idx = loop.pts.map((q, i) => i).filter(i => loop.pts[i].st === st);
+  // start about a third of the way along, but not inside a street tree
+  const trees = treeList.map(t => uv2en(t.position.x, t.position.z));
+  const clear = i => Math.min(...trees.map(t => Math.hypot(t[0] - loop.pts[i].p[0], t[1] - loop.pts[i].p[1])));
+  const mid = (st === 3 ? [0.45, 0.5, 0.4] : [0.35, 0.45, 0.25, 0.55, 0.2, 0.65]).map(f => idx[Math.floor(idx.length * f)]).find(i => clear(i) > 3) ?? idx[Math.floor(idx.length * 0.35)];
+  walk.s = loop.cum[mid]; walk.dir = st === 3 ? -1 : 1;   // Tahkemoni: face away from the facade projection
+  const q = sample(loop, walk.s); faceBuilding(q);
+  const wasOn = walk.on;
+  walk.on = true; controls.enabled = false; showTip(null);
+  stage.dataset.walk = 'true'; walkbar.dataset.on = 'true';
+  walkWhere.dataset.side = ''; updateWhere(q);
+  document.querySelectorAll('#views .chip').forEach(c => c.classList.remove('on'));
+  const pos = W(q.e, q.n, EYE), tgt = pos.clone().add(lookDir());
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || wasOn){ anim = null; placeWalker(); }
+  else anim = { s: performance.now(), p0: camera.position.clone(), p1: pos, t0: controls.target.clone(), t1: tgt, f0: camera.fov, f1: 70 };
+  if (window.innerWidth <= 760) rail.dataset.open = 'false';
+}
+function placeWalker(){
+  const q = sample(LOOPS[walk.side], walk.s);
+  camera.position.copy(W(q.e, q.n, EYE));
+  camera.lookAt(camera.position.clone().add(lookDir()));
+  if (camera.fov !== 70){ camera.fov = 70; camera.updateProjectionMatrix(); }
+  updateWhere(q);
+}
+function exitWalk(toIso){
+  walk.on = false; walk.keys = {}; walk.hold = {};
+  document.querySelectorAll('#walkbar [data-hold]').forEach(b => b.classList.remove('held'));
+  stage.dataset.walk = 'false'; walkbar.dataset.on = 'false';
+  document.querySelectorAll('#walkStreets .chip').forEach(c => c.classList.remove('on'));
+  controls.target.copy(camera.position.clone().add(lookDir().multiplyScalar(12)));
+  controls.enabled = true; controls.update();
+  if (toIso) fly('iso');
+}
+function stepWalk(dt){
+  const k = walk.keys, h = walk.hold, fast = k.Shift ? 2.2 : 1;
+  const mv = (k.fwd || h.fwd ? 1 : 0) - (k.back || h.back ? 1 : 0);
+  const tr = (k.turnL || h.turnL ? 1 : 0) - (k.turnR || h.turnR ? 1 : 0);
+  if (tr) walk.yaw = wrapA(walk.yaw - tr * TURN_V * dt);   // yaw decreases = turn left (seen from above)
+  if (mv){
+    const loop = LOOPS[walk.side], q0 = sample(loop, walk.s);
+    const f = lookDir(), along = q0.te * f.x + (-q0.tn) * f.z;       // path tangent in world xz vs. gaze
+    walk.dir = along >= 0 ? 1 : -1;
+    walk.s += walk.dir * mv * WALK_V * fast * dt;
+    const q1 = sample(loop, walk.s);
+    // carry the gaze around corners so the view turns with the sidewalk
+    walk.yaw = wrapA(walk.yaw + wrapA(yawOf(q1.te, q1.tn) - yawOf(q0.te, q0.tn)));
+  }
+  placeWalker();
+}
+const KEYMAP = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'turnL', KeyA: 'turnL', ArrowRight: 'turnR', KeyD: 'turnR' };
+window.addEventListener('keydown', e => {
+  if (!walk.on || e.target.closest('input,textarea,select')) return;
+  if (e.key === 'Escape'){ exitWalk(true); return; }
+  if (e.key === 'Shift') walk.keys.Shift = true;
+  const a = KEYMAP[e.code]; if (a){ walk.keys[a] = true; e.preventDefault(); }
+});
+window.addEventListener('keyup', e => { if (e.key === 'Shift') walk.keys.Shift = false; const a = KEYMAP[e.code]; if (a) walk.keys[a] = false; });
+window.addEventListener('blur', () => { walk.keys = {}; });
+document.querySelectorAll('#walkbar [data-hold]').forEach(b => {
+  const a = b.dataset.hold;
+  const on = e => { e.preventDefault(); walk.hold[a] = true; b.classList.add('held'); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
+  const off = () => { walk.hold[a] = false; b.classList.remove('held'); };
+  b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
+});
+document.getElementById('walkFace').addEventListener('click', () => { faceBuilding(sample(LOOPS[walk.side], walk.s), true); placeWalker(); });
+document.getElementById('walkExit').addEventListener('click', () => exitWalk(true));
+document.querySelectorAll('#walkStreets .chip').forEach(c => c.addEventListener('click', () => startWalk(+c.dataset.street)));
+document.querySelectorAll('#walkSide button').forEach(b => b.addEventListener('click', () => {
+  if (walk.side === b.dataset.side) return;
+  const st = walk.on ? sample(LOOPS[walk.side], walk.s).st : null;
+  walk.side = b.dataset.side;
+  document.querySelectorAll('#walkSide button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  if (st !== null) startWalk(st);
+}));
+// drag to look around while walking
+let lookDrag = null;
+renderer.domElement.addEventListener('pointerdown', e => { if (walk.on){ lookDrag = { x: e.clientX, y: e.clientY }; renderer.domElement.style.cursor = 'grabbing'; } });
+window.addEventListener('pointermove', e => {
+  if (!walk.on || !lookDrag) return;
+  walk.yaw = wrapA(walk.yaw - (e.clientX - lookDrag.x) * 0.0045);
+  walk.pitch = Math.max(-0.7, Math.min(1.05, walk.pitch + (e.clientY - lookDrag.y) * 0.0045));
+  lookDrag = { x: e.clientX, y: e.clientY };
+});
+window.addEventListener('pointerup', () => { lookDrag = null; renderer.domElement.style.cursor = ''; });
 
 
 // ---------- sun ----------
@@ -779,6 +1064,8 @@ function occlude(){
   if (camera.position.y < 14) parcelLbl.children.forEach(o => { o.visible = false; });
 }
 function tick(){
+  const now = performance.now(), dt = Math.min(0.1, (now - (walk.last || now)) / 1000); walk.last = now;
+  if (walk.on && !anim){ stepWalk(dt); syncLabels(); occlude(); renderer.render(scene, camera); labelR.render(scene, camera); requestAnimationFrame(tick); return; }
   if (anim){ const t = Math.min(1, (performance.now() - anim.s) / 1100); const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     camera.position.lerpVectors(anim.p0, anim.p1, e); controls.target.lerpVectors(anim.t0, anim.t1, e); camera.fov = anim.f0 + (anim.f1 - anim.f0) * e; camera.updateProjectionMatrix(); if (t >= 1) anim = null; }
   controls.update(); syncLabels(); occlude(); renderer.render(scene, camera); labelR.render(scene, camera); requestAnimationFrame(tick);
