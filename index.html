@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="הדמיה תלת-ממדית של מבנה השימור בשבזי 58 / אחד העם 1, נווה צדק — מצב קיים, חלופת שימור ותוספת, מעטפת הזכויות ופנים משוער.">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/brand/favicon-16.png">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+<meta name="theme-color" content="#faf7f0">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="שבזי 58 · אחד העם 1">
+<meta property="og:title" content="שבזי 58 · נווה צדק">
+<meta property="og:description" content="הדמיה תלת-ממדית של מבנה השימור בשבזי 58 / אחד העם 1: מצב קיים, תוספת, תמהילי דירות, מרתף והליכה ברחוב.">
+<meta property="og:url" content="https://itaytoren7.github.io/Neve-Tzedek/">
+<meta property="og:image" content="https://itaytoren7.github.io/Neve-Tzedek/assets/brand/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>:root{color-scheme:light; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
 <title>שבזי 58 · נווה צדק</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,6 +46,8 @@ body{background:var(--bg); color:var(--fg); font-family:var(--font-body); font-s
 #app{height:100%; display:flex; flex-direction:column; gap:10px; padding-inline:16px; padding-block:12px; box-sizing:border-box}
 header{display:flex; align-items:center; gap:12px 18px; flex-wrap:wrap; flex:0 0 auto}
 header .name{display:flex; flex-direction:column; min-width:0}
+header .ident{display:flex; align-items:center; gap:12px; min-width:0}
+header .logo{height:48px; width:auto; flex:0 0 auto; display:block}
 header h1{font-family:var(--font-display); font-weight:700; font-size:22px; line-height:1.15; margin:0; text-wrap:balance}
 header .sub{color:var(--muted); font-size:12.5px}
 header .sub b{font-family:var(--font-mono); font-weight:500; color:var(--fg)}
@@ -142,6 +158,7 @@ a{color:var(--accent)}
 @media (max-width: 760px){
   #app{padding-inline:16px}
   header h1{font-size:19px}
+  header .logo{height:38px}
   #rail{position:absolute; inset:auto 0 0 0; width:auto; flex:none; max-height:60%; z-index:9; background:var(--bg); padding:10px; border-radius:var(--r) var(--r) 0 0; box-shadow:var(--shadow); border:1px solid var(--line)}
   #rail[data-open="false"]{display:none}
   #railToggle{display:inline-block}
@@ -158,9 +175,12 @@ a{color:var(--accent)}
 <body>
 <div id="app" dir="rtl">
   <header>
-    <div class="name">
-      <h1>שבזי 58 · אחד העם 1</h1>
-      <div class="sub">נווה צדק · גוש <b>7422</b> · חלקות <b>47</b>–<b>48</b> · <b>473</b> מ״ר · מבנה לשימור</div>
+    <div class="ident">
+      <img class="logo" src="assets/brand/mark.png" alt="סמל הפרויקט: מבנה השימור בשבזי 58" width="574" height="603">
+      <div class="name">
+        <h1>שבזי 58 · אחד העם 1</h1>
+        <div class="sub">נווה צדק · גוש <b>7422</b> · חלקות <b>47</b>–<b>48</b> · <b>473</b> מ״ר · מבנה לשימור</div>
+      </div>
     </div>
     <div class="actions">
       <button class="btn" id="railToggle" type="button">שכבות ומבטים</button>
