@@ -53,6 +53,8 @@ main{flex:1; min-height:0; display:flex; gap:10px; position:relative}
 .seg{display:grid; grid-template-columns:1fr; gap:6px}
 .seg button{font:inherit; font-size:13px; text-align:start; padding:8px 10px; border-radius:9px; border:1px solid var(--line); background:var(--surface-2); color:var(--fg); cursor:pointer; display:flex; flex-direction:column; gap:1px}
 .seg button small{color:var(--muted); font-size:11.5px}
+.seg.compact{gap:4px}
+.seg.compact button{padding:6px 10px}
 .seg button[aria-pressed="true"]{border-color:var(--accent); background:var(--accent-soft)}
 .seg button[aria-pressed="true"] span{color:var(--accent); font-weight:600}
 .lay{display:flex; align-items:center; gap:8px; padding:3px 0; font-size:13px; cursor:pointer}
@@ -192,6 +194,19 @@ a{color:var(--accent)}
         <label class="lay"><input type="checkbox" id="L_base">מרתף אפשרי (עד 3 קומות)<span class="sw" style="background:#5b7a8c"></span></label>
       </div>
       <div class="card">
+        <h3>שימוש במרתף</h3>
+        <div class="seg compact" id="baseOpts" role="group" aria-label="שימוש במרתף">
+          <button type="button" data-base="none" aria-pressed="true"><span>בלי מרתף</span></button>
+          <button type="button" data-base="shop" aria-pressed="false"><span>1. הרחבת המסחר</span></button>
+          <button type="button" data-base="store" aria-pressed="false"><span>2. מחסנים וחדרים טכניים</span></button>
+          <button type="button" data-base="duplex" aria-pressed="false"><span>3. דירות הגן כדופלקס</span></button>
+          <button type="button" data-base="park" aria-pressed="false"><span>4. חניה עם מעלית רכב</span></button>
+          <button type="button" data-base="amen" aria-pressed="false"><span>5. מתקנים לדיירים</span></button>
+          <button type="button" data-base="rec" aria-pressed="false"><span>המלצה: 1 + 2 + 3</span></button>
+        </div>
+        <p class="walk-hint" id="baseInfo" hidden></p>
+      </div>
+      <div class="card">
         <h3>מבטים</h3>
         <div class="views" id="views">
           <button class="chip on" type="button" data-view="iso">איזומטרי</button>
@@ -213,7 +228,7 @@ a{color:var(--accent)}
           <button type="button" data-side="inner" aria-pressed="true">מדרכה צמודה למבנה</button>
           <button type="button" data-side="outer" aria-pressed="false">מדרכה ממול</button>
         </div>
-        <p class="walk-hint">חצים או W/S להליכה, A/D או גרירה להסתכלות. Shift להליכה מהירה.</p>
+        <p class="walk-hint">חץ למעלה ולמטה להליכה, חץ ימינה ושמאלה לסיבוב המבט. גרירה בעכבר להסתכלות, Shift להליכה מהירה, Esc ליציאה.</p>
       </div>
       <div class="card time">
         <h3>שמש · 29 בספטמבר</h3>
@@ -736,6 +751,101 @@ const G47 = [-12.0, -0.05], G48 = [0.35, 11.7], GV = [-7.4, 8.2];
   label('מרתף עליון עד 4.5 מ׳ נטו<span class="s">עד 3 קומות, עד גבול המגרש, בכפוף לשימור</span>', 'room', new THREE.Vector3(0, -2.4, -11.0), blockBase);
 }
 
+// ---------- basement uses (one level, schematic) ----------
+// Basement 1 spans the lot: u -13.2..13.1, v -9.2..9.5, floor at -4.7. Parcel 47 zones: u < -1.9; parcel 48: u > 2.0;
+// the strip between is the shared stair + lift core and corridor. Main (עיקרי) area allowed below ground: 10% per parcel ≈ 24 m².
+const BCOL = { shopPub: 0xe0a33b, shopSvc: 0xd8c08a, store: 0x9aa3ad, tech: 0x5b7a8c, bike: 0x7fa37a, duplex: 0x6aa84f, well: 0x9fd3e6, park: 0x8d939a, car: 0x3b4046, lift: 0x444a4f, gym: 0xc0587e, spa: 0x3a8fd0, cine: 0x6b4fa0, lounge: 0xc9a27a, core: 0x7c8580 };
+const BMAT = {}; Object.keys(BCOL).forEach(k => { BMAT[k] = mixMat(BCOL[k]); });
+BMAT.car = mat(BCOL.car, { roughness: 0.5 }); BMAT.spa.opacity = 0.75;
+const BF = -4.7, BH = 4.4, BU0 = -13.0, BU1 = 12.9, BV0 = -9.0, BV1 = 9.3;
+const blockB = new THREE.Group(); block.add(blockB);
+const BASE = {};
+function bz(g, kind, u0, u1, v0, v1, text, y0, h){
+  y0 = y0 === undefined ? BF : y0; h = h || BH;
+  const m = box(u1 - u0, h, v1 - v0, BMAT[kind], (u0 + u1) / 2, y0 + h / 2, (v0 + v1) / 2, g, false); m.renderOrder = 3; m.receiveShadow = false;
+  if (kind !== 'car'){ const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: BCOL[kind] })); e.position.copy(m.position); g.add(e); }
+  if (text) label(text, 'room', new THREE.Vector3((u0 + u1) / 2, y0 + Math.min(h, 3) * 0.6, (v0 + v1) / 2), g);
+  return m;
+}
+function baseShell(g){
+  const sh = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(BU1 - BU0 + 0.3, BH + 0.3, BV1 - BV0 + 0.3)), new THREE.LineBasicMaterial({ color: 0x3f5f70 }));
+  sh.position.set((BU0 + BU1) / 2, BF + BH / 2, (BV0 + BV1) / 2); g.add(sh);
+  const fl = box(BU1 - BU0, 0.12, BV1 - BV0, mat(0x6f7a80), (BU0 + BU1) / 2, BF - 0.06, (BV0 + BV1) / 2, g, false); fl.receiveShadow = true;
+  bz(g, 'core', -1.7, 1.9, -1.6, 1.6, null, BF, BH + 4.7);   // stairs + lift down from the ground floor
+  label('מרתף 1 · כ-470 מ״ר · עד 4.5 מ׳ נטו', 'dim', new THREE.Vector3(BU0 - 1.5, BF, 0), g);
+}
+function storageRows(g, u0, u1, v0, v1, n){   // a row of numbered storage cages
+  const w = (u1 - u0) / n;
+  for (let i = 0; i < n; i++) bz(g, 'store', u0 + i * w + 0.05, u0 + (i + 1) * w - 0.05, v0, v1, null, BF, 2.4);
+}
+const BASE_INFO = {
+  none: '',
+  shop: 'הרחבת המסחר של חלקה 47: מטבח, מחסן ושירותים, ובר או מרתף יין לקהל. רק כ-24 מ״ר יכולים להיות שטח עיקרי לקהל.',
+  store: 'מחסן לכל דירה, חדר אופניים וחדר מערכות מתחת לחלקה 48. משחרר את קומת הקרקע לשימושים שמכניסים כסף.',
+  duplex: 'תמהיל א׳: קומה תחתונה לכל דירת גן, מחוברת בגרם מדרגות פנימי. כ-12 מ״ר עיקרי לדירה והשאר שירות. אור יום דרך חצר אנגלית, בכפוף לאישור השימור.',
+  park: 'עד 10 מקומות חניה, המקסימום לפי התקן, עם מעלית רכב מרחוב ר׳ יהודה חסיד. מעלית הרכב תופסת חלק מחזית קומת הקרקע של חלקה 48.',
+  amen: 'מתקנים לדיירים: חדר כושר, חדר קולנוע, ספא עם בריכה קטנה ולובי. צריך לבדוק מול הוועדה איך השטח נספר.',
+  rec: 'ההמלצה: הרחבת המסחר מתחת ל-47, ומתחת ל-48 קומה תחתונה לדירות הגן לצד מחסנים וחדר מערכות. קומת מרתף אחת בלבד.'
+};
+// 1. commercial extension (under parcel 47)
+{ const g = BASE.shop = new THREE.Group(); blockB.add(g); baseShell(g);
+  bz(g, 'shopPub', BU0, BU0 + 4.0, BV0, BV0 + 6.0, 'בר / מרתף יין<span class="s">כ-24 מ״ר עיקרי לקהל</span>');
+  bz(g, 'shopSvc', BU0 + 4.1, -1.9, BV0, BV1, 'מטבח, מחסן ושירותים<span class="s">כ-190 מ״ר שירות</span>');
+  bz(g, 'shopSvc', BU0, BU0 + 4.0, BV0 + 6.1, BV1, null);
+  bz(g, 'core', -1.6, -0.3, -6.5, -3.5, 'מדרגות מהחנות', BF, BH + 4.7);
+}
+// 2. storage + bikes + plant room (under parcel 48)
+{ const g = BASE.store = new THREE.Group(); blockB.add(g); baseShell(g);
+  storageRows(g, 2.1, 10.9, 4.3, 6.7, 4); storageRows(g, 2.1, 10.9, 6.9, BV1, 4);
+  label('8 מחסנים לדירות<span class="s">כ-5.5 מ״ר כל אחד</span>', 'room', new THREE.Vector3(6.5, BF + 2.0, 6.8), g);
+  bz(g, 'bike', 11.0, BU1, 4.3, BV1, 'חדר אופניים');
+  bz(g, 'tech', 7.5, BU1, BV0, -3.4, 'חדר מערכות<span class="s">משאבות, מאגר מים, חשמל</span>');
+  bz(g, 'tech', 2.1, 7.4, BV0, -3.4, 'אשפה ומחזור');
+}
+// 3. garden-flat duplexes (mix A, under parcel 48)
+function duplexes(g, vMid){
+  bz(g, 'duplex', 2.1, BU1, BV0 + 1.1, vMid - 0.1, 'דירת גן 1 · קומה תחתונה<span class="s">כ-12 מ״ר עיקרי + שירות</span>');
+  bz(g, 'duplex', 2.1, BU1, vMid + 0.1, BV1 - 1.1, 'דירת גן 2 · קומה תחתונה<span class="s">כ-12 מ״ר עיקרי + שירות</span>');
+  bz(g, 'well', 2.6, BU1 - 0.5, BV0, BV0 + 1.0, 'חצר אנגלית<span class="s">דורשת אישור שימור</span>', BF, BH + 4.7);
+  bz(g, 'well', 2.6, BU1 - 0.5, BV1 - 1.0, BV1, null, BF, BH + 4.7);
+  bz(g, 'core', 11.0, 12.2, vMid - 2.4, vMid - 0.4, null, BF, BH + 4.7); bz(g, 'core', 11.0, 12.2, vMid + 0.4, vMid + 2.4, null, BF, BH + 4.7);
+}
+{ const g = BASE.duplex = new THREE.Group(); blockB.add(g); baseShell(g); duplexes(g, 0.15); }
+// 4. parking with a car lift from Rabbi Yehuda Hasid
+{ const g = BASE.park = new THREE.Group(); blockB.add(g); baseShell(g);
+  bz(g, 'park', BU0, 10.3, -3.7, 2.4, 'נתיב תמרון', BF, 0.08);
+  for (let i = 0; i < 5; i++){
+    const u0 = -12.5 + i * 2.5;
+    [[BV0 + 0.2, -3.8], [2.5, 7.5]].forEach((r, j) => {
+      bz(g, 'park', u0 + 0.05, u0 + 2.45, r[0], r[1], null, BF, 0.08);
+      if ((i + j) % 3 !== 2) bz(g, 'car', u0 + 0.35, u0 + 2.15, r[0] + 0.3, r[1] - 0.3, null, BF + 0.1, 1.4);
+    });
+  }
+  label('10 מקומות חניה<span class="s">המקסימום לפי התקן</span>', 'room', new THREE.Vector3(-6.3, BF + 2.6, -6.4), g);
+  bz(g, 'lift', 10.4, BU1, -2.2, 1.9, 'מעלית רכב<span class="s">כניסה מר׳ יהודה חסיד</span>', BF, BH + 4.7 + 2.6);
+  bz(g, 'store', 0.6, 10.3, 2.6, BV1, 'מחסנים וחדר מערכות', BF, 2.4);
+}
+// 5. residents' amenities
+{ const g = BASE.amen = new THREE.Group(); blockB.add(g); baseShell(g);
+  bz(g, 'gym', BU0, -1.9, BV0, -0.2, 'חדר כושר');
+  bz(g, 'cine', BU0, -1.9, 0.0, BV1, 'חדר קולנוע');
+  bz(g, 'lounge', 2.1, BU1, 3.3, BV1, 'לובי דיירים ומחסנים');
+  bz(g, 'spa', 3.0, 11.5, -7.6, 0.6, null, BF, 1.4);
+  label('ספא ובריכה קטנה', 'room', new THREE.Vector3(7.2, BF + 2.4, -3.5), g);
+  bz(g, 'lounge', 2.1, BU1, BV0, 3.1, null, BF, 0.1);
+}
+// recommended: 1 + 2 + 3
+{ const g = BASE.rec = new THREE.Group(); blockB.add(g); baseShell(g);
+  bz(g, 'shopPub', BU0, BU0 + 4.0, BV0, BV0 + 6.0, 'בר / מרתף יין<span class="s">כ-24 מ״ר עיקרי</span>');
+  bz(g, 'shopSvc', BU0 + 4.1, -6.6, BV0, BV1, 'מטבח ושירות למסחר');
+  bz(g, 'shopSvc', BU0, BU0 + 4.0, BV0 + 6.1, BV1, null);
+  storageRows(g, -6.5, -1.9, 1.8, 4.6, 2); storageRows(g, -6.5, -1.9, 4.7, 7.3, 2);
+  label('מחסנים לדירות', 'room', new THREE.Vector3(-4.2, BF + 2.0, 4.6), g);
+  bz(g, 'tech', -6.5, -1.9, 7.4, BV1, null, BF, 2.4); bz(g, 'tech', -6.5, -1.9, BV0, -1.8, 'חדר מערכות');
+  duplexes(g, 0.15);
+}
+Object.values(BASE).forEach(g => { g.visible = false; });
+
 // ---------- trees (approximate positions) ----------
 function tree(u, v, s){ const g = new THREE.Group(); const t = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * s, 0.24 * s, 3.2 * s, 8), MAT.trunk); t.position.y = 1.6 * s; t.castShadow = true; g.add(t);
   for (let k = 0; k < 3; k++){ const c = new THREE.Mesh(new THREE.IcosahedronGeometry((1.5 + Math.random() * 0.5) * s, 1), k % 2 ? MAT.leaf : MAT.leaf2); c.position.set((Math.random() - 0.5) * 1.4 * s, (4.2 + Math.random() * 0.9) * s, (Math.random() - 0.5) * 1.4 * s); c.castShadow = true; g.add(c); }
@@ -755,7 +865,7 @@ FOOT.forEach((a, i) => { const b = FOOT[(i + 1) % FOOT.length]; const L = Math.h
   const d = uv2en(-17, 0); dimL.push(label('±0.00 מפלס כניסה', 'dim', W(d[0], d[1], 0.3), G.dims)); }
 
 // ---------- modes & layers ----------
-const state = { mode: 'existing', cut: false };
+const state = { mode: 'existing', cut: false, base: 'none' };
 const MODE_TEXT = {
   existing: ['מצב קיים', 'מבנה שימור בן קומה אחת על שתי החלקות. גרירה לסיבוב, גלגלת לזום, לחיצה על מבנה לפרטים.'],
   altC: ['חלופה ג׳: שימור + תוספת', 'קומה חדשה בנסיגה מהחזיתות ועליית גג ברעפי חרס, מעל קומת מסחר משוחזרת. כ-6 דירות, הנחת עבודה.'],
@@ -764,26 +874,29 @@ const MODE_TEXT = {
   mixB: ['תמהיל ב׳: מסחר בשתי החלקות', 'כל קומת הקרקע מסחר, ומעליה 4 דירות בקומה החדשה ו-2 בעליית הגג. 6 דירות בנפח של חלופה ג׳; 8 דורשות את המעטפת המלאה. תרשים נפחים, לא תכנון.']
 };
 const isMix = () => state.mode === 'mixA' || state.mode === 'mixB';
+const baseOn = () => state.base !== 'none';
 function applyMode(){
-  blockAdd.visible = state.mode === 'altC';
-  MIX.mixA.visible = state.mode === 'mixA'; MIX.mixB.visible = state.mode === 'mixB';
+  // a basement use is shown on its own: the building is cut down and the volumes above ground are hidden
+  blockAdd.visible = state.mode === 'altC' && !baseOn();
+  MIX.mixA.visible = state.mode === 'mixA' && !baseOn(); MIX.mixB.visible = state.mode === 'mixB' && !baseOn();
   document.querySelectorAll('#legend .mixleg').forEach((d, i) => { d.hidden = !isMix() || (i === 1 && state.mode !== 'mixA'); });
-  parcelLbl.visible = state.mode === 'existing' && !state.cut;
-  G.envelope.visible = blockEnv.visible = state.mode === 'envelope';
+  parcelLbl.visible = state.mode === 'existing' && !state.cut && !baseOn();
+  G.envelope.visible = blockEnv.visible = state.mode === 'envelope' && !baseOn();
   document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode)));
-  document.getElementById('modeTitle').textContent = MODE_TEXT[state.mode][0];
-  document.getElementById('modeText').textContent = MODE_TEXT[state.mode][1];
+  const bt = baseOn() ? document.querySelector('#baseOpts [data-base="' + state.base + '"] span').textContent : null;
+  document.getElementById('modeTitle').textContent = bt ? 'מרתף · ' + bt : MODE_TEXT[state.mode][0];
+  document.getElementById('modeText').textContent = bt ? BASE_INFO[state.base] : MODE_TEXT[state.mode][1];
   setCut(state.cut);
 }
 function setCut(on){
   state.cut = on;
-  const low = on || isMix();                       // unit mixes are drawn over the cut-down ground floor
+  const low = on || isMix() || baseOn();          // unit mixes and basement uses are drawn with the ground floor cut down
   walls.forEach(w => { w.scale.y = low ? CUT_H : WALL_H; w.material = low ? wallMatsCut : wallMatsFull; });
   upper.forEach(u => u.visible = !low);
   G.roofs.visible = !low; blockRoof.visible = !low && state.mode !== 'altC';
-  blockInt.visible = G.interior.visible = on && !isMix();
-  parcelLbl.visible = state.mode === 'existing' && !on;
-  if (on && state.mode === 'altC') blockAdd.visible = false; else if (state.mode === 'altC') blockAdd.visible = true;
+  blockInt.visible = G.interior.visible = on && !isMix() && !baseOn();
+  parcelLbl.visible = state.mode === 'existing' && !on && !baseOn();
+  if (on && state.mode === 'altC') blockAdd.visible = false; else if (state.mode === 'altC') blockAdd.visible = !baseOn();
 }
 const chk = id => document.getElementById(id).checked;
 function bind(id, fn){ const el = document.getElementById(id); el.addEventListener('change', () => fn(el.checked)); fn(el.checked); }
@@ -801,8 +914,24 @@ bind('L_streets', v => { G.streets.visible = v; });
 bind('L_trees', context);
 bind('L_solo', context);
 bind('L_dims', v => { G.dims.visible = v; });
-bind('L_base', v => { blockBase.visible = v; MAT.ground.transparent = v; MAT.ground.opacity = v ? 0.45 : 1; MAT.ground.depthWrite = !v; MAT.ground.needsUpdate = true; controls.maxPolarAngle = v ? Math.PI * 0.62 : Math.PI * 0.49; });
-document.querySelectorAll('#modes button').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; applyMode(); }));
+function groundSee(){
+  // see-through ground for the basement envelope (checkbox) or a basement use
+  const env = chk('L_base') && !baseOn(), see = env || baseOn();
+  blockBase.visible = env;
+  MAT.ground.transparent = see; MAT.ground.opacity = baseOn() ? 0.22 : (see ? 0.45 : 1); MAT.ground.depthWrite = !see; MAT.ground.needsUpdate = true;
+  controls.maxPolarAngle = see ? Math.PI * 0.62 : Math.PI * 0.49;
+}
+bind('L_base', groundSee);
+function setBase(k){
+  state.base = k;
+  Object.entries(BASE).forEach(([n, g]) => { g.visible = n === k; });
+  document.querySelectorAll('#baseOpts button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.base === k)));
+  const info = document.getElementById('baseInfo'); info.textContent = BASE_INFO[k]; info.hidden = !BASE_INFO[k];
+  groundSee(); applyMode();
+  if (baseOn() && !walk.on) fly('base');
+}
+document.querySelectorAll('#baseOpts button').forEach(b => b.addEventListener('click', () => setBase(b.dataset.base)));
+document.querySelectorAll('#modes button').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; if (baseOn()) setBase('none'); else applyMode(); }));
 applyMode(); blockInt.visible = G.interior.visible = false;
 
 // CSS2D labels inherit visibility only from their own flag; hide labels of hidden parents each frame
@@ -816,7 +945,8 @@ const V = {
   shabazi: { uv: [-6, -15.4], h: 1.7, t: [-2.5, 3.1, -9], fov: 74 },
   ahad: { uv: [-3.5, 17.8], h: 1.7, t: [-3.5, 3.0, 9.5], fov: 74 },
   corner: { uv: [21, -15], h: 1.7, t: [9, 3.4, -8], fov: 60 },
-  top: { p: [0.01, 105, 0.01], t: [0, 0, 0] }
+  top: { p: [0.01, 105, 0.01], t: [0, 0, 0] },
+  base: { p: [-16, 48, 18], t: [0.5, -3, 0] }
 };
 function viewPos(k){
   const v = V[k];
@@ -912,6 +1042,7 @@ function startWalk(st){
   const q = sample(loop, walk.s); faceBuilding(q);
   const wasOn = walk.on;
   walk.on = true; controls.enabled = false; showTip(null);
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   stage.dataset.walk = 'true'; walkbar.dataset.on = 'true';
   walkWhere.dataset.side = ''; updateWhere(q);
   document.querySelectorAll('#views .chip').forEach(c => c.classList.remove('on'));
@@ -953,9 +1084,10 @@ function stepWalk(dt){
   }
   placeWalker();
 }
-const KEYMAP = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'turnL', KeyA: 'turnL', ArrowRight: 'turnR', KeyD: 'turnR' };
+const KEYMAP = { ArrowUp: 'fwd', ArrowDown: 'back', ArrowLeft: 'turnL', ArrowRight: 'turnR' };   // arrow keys only
 window.addEventListener('keydown', e => {
-  if (!walk.on || e.target.closest('input,textarea,select')) return;
+  // arrows drive the walk even if a checkbox or button has focus; only text fields and the sun slider keep them
+  if (!walk.on || e.target.closest('textarea,select,input[type=range],input[type=text],input[type=search],input[type=number]')) return;
   if (e.key === 'Escape'){ exitWalk(true); return; }
   if (e.key === 'Shift') walk.keys.Shift = true;
   const a = KEYMAP[e.code]; if (a){ walk.keys[a] = true; e.preventDefault(); }
