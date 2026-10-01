@@ -698,36 +698,51 @@ const blockMix = new THREE.Group(); block.add(blockMix);
 const MIX = { mixA: new THREE.Group(), mixB: new THREE.Group() };
 Object.values(MIX).forEach(g => blockMix.add(g));
 function unit(g, kind, u0, u1, v0, v1, y0, h, text){
-  const m = box(u1 - u0, h, v1 - v0, MIXM[kind], (u0 + u1) / 2, y0 + h / 2, (v0 + v1) / 2, g, false); m.renderOrder = 3; m.receiveShadow = false;
-  const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: MIX_COL[kind] })); e.position.copy(m.position); g.add(e);
-  if (text) label(text, 'room', new THREE.Vector3((u0 + u1) / 2, y0 < 1 ? 1.2 : y0 + h * 0.55, (v0 + v1) / 2), g);
-  return m;
+  const P = kind === 'core' ? [[u0, u1, v0, v1]] : aroundCore(u0, u1, v0, v1);
+  P.forEach(r => {
+    const m = box(r[1] - r[0], h, r[3] - r[2], MIXM[kind], (r[0] + r[1]) / 2, y0 + h / 2, (r[2] + r[3]) / 2, g, false); m.renderOrder = 3; m.receiveShadow = false;
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: MIX_COL[kind] })); e.position.copy(m.position); g.add(e);
+  });
+  const c = biggest(P);
+  if (text) label(text, 'room', new THREE.Vector3((c[0] + c[1]) / 2, y0 < 1 ? 1.2 : y0 + h * 0.55, (c[2] + c[3]) / 2), g);
 }
 const GF_H = 4.9, UF0 = AF + 0.05, UF_H = AH - 0.15, AT0 = AF + AH + 0.25, AT_H = 2.7;
 const CU0 = -1.7, CU1 = 1.9, CV0 = -1.6, CV1 = 1.6;          // shared stair + lift core on the parcel line (assumption)
+const PU = 0.15;                                               // parcel line 47 | 48: units on both sides run back to back up to it
+function aroundCore(u0, u1, v0, v1){
+  // split a rectangle so it wraps around the core instead of overlapping it
+  if (u1 <= CU0 || u0 >= CU1 || v1 <= CV0 || v0 >= CV1) return [[u0, u1, v0, v1]];
+  const P = [], a = Math.max(u0, CU0), b = Math.min(u1, CU1);
+  if (u0 < CU0) P.push([u0, CU0, v0, v1]);
+  if (u1 > CU1) P.push([CU1, u1, v0, v1]);
+  if (v0 < CV0) P.push([a, b, v0, CV0]);
+  if (v1 > CV1) P.push([a, b, CV1, v1]);
+  return P;
+}
+const biggest = P => P.reduce((m, r) => (r[1] - r[0]) * (r[3] - r[2]) > (m[1] - m[0]) * (m[3] - m[2]) ? r : m);
 function core(g){ unit(g, 'core', CU0, CU1, CV0, CV1, 0.05, AT0 + AT_H - 0.05, null); }
 function upperFloors(g, n0){
   // new floor: 4 flats (2 per parcel); attic: 2 flats (1 per parcel)
-  unit(g, 'apt', AU0, CU0 - 0.1, AV0, -0.05, UF0, UF_H, 'דירה ' + (n0) + ' · כ-62 מ״ר');
-  unit(g, 'apt', AU0, CU0 - 0.1, 0.05, AV1, UF0, UF_H, 'דירה ' + (n0 + 1) + ' · כ-62 מ״ר');
-  unit(g, 'apt', CU1 + 0.1, AU1, AV0, -0.05, UF0, UF_H, 'דירה ' + (n0 + 2) + ' · כ-62 מ״ר');
-  unit(g, 'apt', CU1 + 0.1, AU1, 0.05, AV1, UF0, UF_H, 'דירה ' + (n0 + 3) + ' · כ-62 מ״ר');
-  unit(g, 'attic', AU0 + 1.0, CU0 - 0.1, AV0 + 1.6, AV1 - 1.6, AT0, AT_H, 'דירה ' + (n0 + 4) + ' · כ-75 מ״ר');
-  unit(g, 'attic', CU1 + 0.1, AU1 - 1.0, AV0 + 1.6, AV1 - 1.6, AT0, AT_H, 'דירה ' + (n0 + 5) + ' · כ-75 מ״ר');
+  unit(g, 'apt', AU0, PU - 0.05, AV0, -0.05, UF0, UF_H, 'דירה ' + (n0) + ' · כ-62 מ״ר');
+  unit(g, 'apt', AU0, PU - 0.05, 0.05, AV1, UF0, UF_H, 'דירה ' + (n0 + 1) + ' · כ-62 מ״ר');
+  unit(g, 'apt', PU + 0.05, AU1, AV0, -0.05, UF0, UF_H, 'דירה ' + (n0 + 2) + ' · כ-62 מ״ר');
+  unit(g, 'apt', PU + 0.05, AU1, 0.05, AV1, UF0, UF_H, 'דירה ' + (n0 + 3) + ' · כ-62 מ״ר');
+  unit(g, 'attic', AU0 + 1.0, PU - 0.05, AV0 + 1.6, AV1 - 1.6, AT0, AT_H, 'דירה ' + (n0 + 4) + ' · כ-75 מ״ר');
+  unit(g, 'attic', PU + 0.05, AU1 - 1.0, AV0 + 1.6, AV1 - 1.6, AT0, AT_H, 'דירה ' + (n0 + 5) + ' · כ-75 מ״ר');
 }
 // footprint of the existing hall per parcel (approximate, inset from the facades)
 const G47 = [-12.0, -0.05], G48 = [0.35, 11.7], GV = [-7.4, 8.2];
 { // Mix A: shop on 47, two ground-floor ("garden") flats on 48, six flats above
   const g = MIX.mixA; core(g);
-  unit(g, 'shop', G47[0], Math.min(G47[1], CU0 - 0.1), GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 47<span class="s">כ-215 מ״ר</span>');
-  unit(g, 'garden', CU1 + 0.1, G48[1], GV[0], 0.3, 0.05, GF_H, 'דירת גן 1 · כ-105 מ״ר');
-  unit(g, 'garden', CU1 + 0.1, G48[1], 0.5, GV[1], 0.05, GF_H, 'דירת גן 2 · כ-105 מ״ר');
+  unit(g, 'shop', G47[0], Math.min(G47[1], PU - 0.05), GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 47<span class="s">כ-215 מ״ר</span>');
+  unit(g, 'garden', PU + 0.05, G48[1], GV[0], 0.3, 0.05, GF_H, 'דירת גן 1 · כ-105 מ״ר');
+  unit(g, 'garden', PU + 0.05, G48[1], 0.5, GV[1], 0.05, GF_H, 'דירת גן 2 · כ-105 מ״ר');
   upperFloors(g, 3);
 }
 { // Mix B: shops on both parcels, six flats above
   const g = MIX.mixB; core(g);
-  unit(g, 'shop', G47[0], CU0 - 0.1, GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 47<span class="s">כ-215 מ״ר</span>');
-  unit(g, 'shop', CU1 + 0.1, G48[1], GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 48<span class="s">כ-215 מ״ר</span>');
+  unit(g, 'shop', G47[0], PU - 0.05, GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 47<span class="s">כ-215 מ״ר</span>');
+  unit(g, 'shop', PU + 0.05, G48[1], GV[0], GV[1], 0.05, GF_H, 'מסחר · חלקה 48<span class="s">כ-215 מ״ר</span>');
   upperFloors(g, 1);
 }
 
@@ -752,26 +767,31 @@ const G47 = [-12.0, -0.05], G48 = [0.35, 11.7], GV = [-7.4, 8.2];
 }
 
 // ---------- basement uses (one level, schematic) ----------
-// Basement 1 spans the lot: u -13.2..13.1, v -9.2..9.5, floor at -4.7. Parcel 47 zones: u < -1.9; parcel 48: u > 2.0;
-// the strip between is the shared stair + lift core and corridor. Main (עיקרי) area allowed below ground: 10% per parcel ≈ 24 m².
+// Basement 1 spans the lot: u -13.2..13.1, v -9.2..9.5, floor at -4.7. Parcel 47 zones run up to the parcel line (PU)
+// from one side and parcel 48 zones from the other, wrapping around the shared stair + lift core. Main (עיקרי) area allowed below ground: 10% per parcel ≈ 24 m².
 const BCOL = { shopPub: 0xe0a33b, shopSvc: 0xd8c08a, store: 0x9aa3ad, tech: 0x5b7a8c, bike: 0x7fa37a, duplex: 0x6aa84f, well: 0x9fd3e6, park: 0x8d939a, car: 0x3b4046, lift: 0x444a4f, gym: 0xc0587e, spa: 0x3a8fd0, cine: 0x6b4fa0, lounge: 0xc9a27a, core: 0x7c8580 };
 const BMAT = {}; Object.keys(BCOL).forEach(k => { BMAT[k] = mixMat(BCOL[k]); });
 BMAT.car = mat(BCOL.car, { roughness: 0.5 }); BMAT.spa.opacity = 0.75;
 const BF = -4.7, BH = 4.4, BU0 = -13.0, BU1 = 12.9, BV0 = -9.0, BV1 = 9.3;
 const blockB = new THREE.Group(); block.add(blockB);
 const BASE = {};
+let coreAtCentre = true;
 function bz(g, kind, u0, u1, v0, v1, text, y0, h){
   y0 = y0 === undefined ? BF : y0; h = h || BH;
-  const m = box(u1 - u0, h, v1 - v0, BMAT[kind], (u0 + u1) / 2, y0 + h / 2, (v0 + v1) / 2, g, false); m.renderOrder = 3; m.receiveShadow = false;
-  if (kind !== 'car'){ const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: BCOL[kind] })); e.position.copy(m.position); g.add(e); }
-  if (text) label(text, 'room', new THREE.Vector3((u0 + u1) / 2, y0 + Math.min(h, 3) * 0.6, (v0 + v1) / 2), g);
-  return m;
+  const P = (!coreAtCentre || ['core', 'well', 'lift', 'car'].includes(kind)) ? [[u0, u1, v0, v1]] : aroundCore(u0, u1, v0, v1);
+  P.forEach(r => {
+    const m = box(r[1] - r[0], h, r[3] - r[2], BMAT[kind], (r[0] + r[1]) / 2, y0 + h / 2, (r[2] + r[3]) / 2, g, false); m.renderOrder = 3; m.receiveShadow = false;
+    if (kind !== 'car'){ const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: BCOL[kind] })); e.position.copy(m.position); g.add(e); }
+  });
+  const c = biggest(P);
+  if (text) label(text, 'room', new THREE.Vector3((c[0] + c[1]) / 2, y0 + Math.min(h, 3) * 0.6, (c[2] + c[3]) / 2), g);
 }
-function baseShell(g){
+function baseShell(g, coreRect){
   const sh = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(BU1 - BU0 + 0.3, BH + 0.3, BV1 - BV0 + 0.3)), new THREE.LineBasicMaterial({ color: 0x3f5f70 }));
   sh.position.set((BU0 + BU1) / 2, BF + BH / 2, (BV0 + BV1) / 2); g.add(sh);
   const fl = box(BU1 - BU0, 0.12, BV1 - BV0, mat(0x6f7a80), (BU0 + BU1) / 2, BF - 0.06, (BV0 + BV1) / 2, g, false); fl.receiveShadow = true;
-  bz(g, 'core', -1.7, 1.9, -1.6, 1.6, null, BF, BH + 4.7);   // stairs + lift down from the ground floor
+  const cr = coreRect || [CU0, CU1, CV0, CV1];
+  bz(g, 'core', cr[0], cr[1], cr[2], cr[3], null, BF, BH + 4.7);   // stairs + lift down from the ground floor
   label('מרתף 1 · כ-470 מ״ר · עד 4.5 מ׳ נטו', 'dim', new THREE.Vector3(BU0 - 1.5, BF, 0), g);
 }
 function storageRows(g, u0, u1, v0, v1, n){   // a row of numbered storage cages
@@ -790,29 +810,29 @@ const BASE_INFO = {
 // 1. commercial extension (under parcel 47)
 { const g = BASE.shop = new THREE.Group(); blockB.add(g); baseShell(g);
   bz(g, 'shopPub', BU0, BU0 + 4.0, BV0, BV0 + 6.0, 'בר / מרתף יין<span class="s">כ-24 מ״ר עיקרי לקהל</span>');
-  bz(g, 'shopSvc', BU0 + 4.1, -1.9, BV0, BV1, 'מטבח, מחסן ושירותים<span class="s">כ-190 מ״ר שירות</span>');
+  bz(g, 'shopSvc', BU0 + 4.1, PU - 0.05, BV0, BV1, 'מטבח, מחסן ושירותים<span class="s">כ-190 מ״ר שירות</span>');
   bz(g, 'shopSvc', BU0, BU0 + 4.0, BV0 + 6.1, BV1, null);
   bz(g, 'core', -1.6, -0.3, -6.5, -3.5, 'מדרגות מהחנות', BF, BH + 4.7);
 }
 // 2. storage + bikes + plant room (under parcel 48)
 { const g = BASE.store = new THREE.Group(); blockB.add(g); baseShell(g);
-  storageRows(g, 2.1, 10.9, 4.3, 6.7, 4); storageRows(g, 2.1, 10.9, 6.9, BV1, 4);
+  storageRows(g, PU + 0.05, 10.9, 4.3, 6.7, 4); storageRows(g, PU + 0.05, 10.9, 6.9, BV1, 4);
   label('8 מחסנים לדירות<span class="s">כ-5.5 מ״ר כל אחד</span>', 'room', new THREE.Vector3(6.5, BF + 2.0, 6.8), g);
   bz(g, 'bike', 11.0, BU1, 4.3, BV1, 'חדר אופניים');
   bz(g, 'tech', 7.5, BU1, BV0, -3.4, 'חדר מערכות<span class="s">משאבות, מאגר מים, חשמל</span>');
-  bz(g, 'tech', 2.1, 7.4, BV0, -3.4, 'אשפה ומחזור');
+  bz(g, 'tech', PU + 0.05, 7.4, BV0, -3.4, 'אשפה ומחזור');
 }
 // 3. garden-flat duplexes (mix A, under parcel 48)
 function duplexes(g, vMid){
-  bz(g, 'duplex', 2.1, BU1, BV0 + 1.1, vMid - 0.1, 'דירת גן 1 · קומה תחתונה<span class="s">כ-12 מ״ר עיקרי + שירות</span>');
-  bz(g, 'duplex', 2.1, BU1, vMid + 0.1, BV1 - 1.1, 'דירת גן 2 · קומה תחתונה<span class="s">כ-12 מ״ר עיקרי + שירות</span>');
+  bz(g, 'duplex', PU + 0.05, BU1, BV0 + 1.1, vMid - 0.1, 'דירת גן 1 · קומה תחתונה<span class="s">כ-12 מ״ר עיקרי + שירות</span>');
+  bz(g, 'duplex', PU + 0.05, BU1, vMid + 0.1, BV1 - 1.1, 'דירת גן 2 · קומה תחתונה<span class="s">כ-12 מ״ר עיקרי + שירות</span>');
   bz(g, 'well', 2.6, BU1 - 0.5, BV0, BV0 + 1.0, 'חצר אנגלית<span class="s">דורשת אישור שימור</span>', BF, BH + 4.7);
   bz(g, 'well', 2.6, BU1 - 0.5, BV1 - 1.0, BV1, null, BF, BH + 4.7);
   bz(g, 'core', 11.0, 12.2, vMid - 2.4, vMid - 0.4, null, BF, BH + 4.7); bz(g, 'core', 11.0, 12.2, vMid + 0.4, vMid + 2.4, null, BF, BH + 4.7);
 }
 { const g = BASE.duplex = new THREE.Group(); blockB.add(g); baseShell(g); duplexes(g, 0.15); }
 // 4. parking with a car lift from Rabbi Yehuda Hasid
-{ const g = BASE.park = new THREE.Group(); blockB.add(g); baseShell(g);
+{ coreAtCentre = false; const g = BASE.park = new THREE.Group(); blockB.add(g); baseShell(g, [10.4, BU1, 2.6, 5.8]);
   bz(g, 'park', BU0, 10.3, -3.7, 2.4, 'נתיב תמרון', BF, 0.08);
   for (let i = 0; i < 5; i++){
     const u0 = -12.5 + i * 2.5;
@@ -824,24 +844,25 @@ function duplexes(g, vMid){
   label('10 מקומות חניה<span class="s">המקסימום לפי התקן</span>', 'room', new THREE.Vector3(-6.3, BF + 2.6, -6.4), g);
   bz(g, 'lift', 10.4, BU1, -2.2, 1.9, 'מעלית רכב<span class="s">כניסה מר׳ יהודה חסיד</span>', BF, BH + 4.7 + 2.6);
   bz(g, 'store', 0.6, 10.3, 2.6, BV1, 'מחסנים וחדר מערכות', BF, 2.4);
+  coreAtCentre = true;
 }
 // 5. residents' amenities
 { const g = BASE.amen = new THREE.Group(); blockB.add(g); baseShell(g);
-  bz(g, 'gym', BU0, -1.9, BV0, -0.2, 'חדר כושר');
-  bz(g, 'cine', BU0, -1.9, 0.0, BV1, 'חדר קולנוע');
-  bz(g, 'lounge', 2.1, BU1, 3.3, BV1, 'לובי דיירים ומחסנים');
+  bz(g, 'gym', BU0, PU - 0.05, BV0, -0.2, 'חדר כושר');
+  bz(g, 'cine', BU0, PU - 0.05, 0.0, BV1, 'חדר קולנוע');
+  bz(g, 'lounge', PU + 0.05, BU1, 3.3, BV1, 'לובי דיירים ומחסנים');
   bz(g, 'spa', 3.0, 11.5, -7.6, 0.6, null, BF, 1.4);
   label('ספא ובריכה קטנה', 'room', new THREE.Vector3(7.2, BF + 2.4, -3.5), g);
-  bz(g, 'lounge', 2.1, BU1, BV0, 3.1, null, BF, 0.1);
+  bz(g, 'lounge', PU + 0.05, BU1, BV0, 3.1, null, BF, 0.1);
 }
 // recommended: 1 + 2 + 3
 { const g = BASE.rec = new THREE.Group(); blockB.add(g); baseShell(g);
   bz(g, 'shopPub', BU0, BU0 + 4.0, BV0, BV0 + 6.0, 'בר / מרתף יין<span class="s">כ-24 מ״ר עיקרי</span>');
   bz(g, 'shopSvc', BU0 + 4.1, -6.6, BV0, BV1, 'מטבח ושירות למסחר');
   bz(g, 'shopSvc', BU0, BU0 + 4.0, BV0 + 6.1, BV1, null);
-  storageRows(g, -6.5, -1.9, 1.8, 4.6, 2); storageRows(g, -6.5, -1.9, 4.7, 7.3, 2);
+  storageRows(g, -6.5, PU - 0.05, 1.8, 4.6, 2); storageRows(g, -6.5, PU - 0.05, 4.7, 7.3, 2);
   label('מחסנים לדירות', 'room', new THREE.Vector3(-4.2, BF + 2.0, 4.6), g);
-  bz(g, 'tech', -6.5, -1.9, 7.4, BV1, null, BF, 2.4); bz(g, 'tech', -6.5, -1.9, BV0, -1.8, 'חדר מערכות');
+  bz(g, 'tech', -6.5, PU - 0.05, 7.4, BV1, null, BF, 2.4); bz(g, 'tech', -6.5, PU - 0.05, BV0, -1.8, 'חדר מערכות');
   duplexes(g, 0.15);
 }
 Object.values(BASE).forEach(g => { g.visible = false; });
