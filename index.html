@@ -112,6 +112,17 @@ main{flex:1; min-height:0; display:flex; gap:10px; position:relative}
 #walkbar .pad .exit{font-size:12.5px; font-weight:600}
 #walkbar button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 #stage[data-walk="true"] #legend,#stage[data-walk="true"] #note{display:none}
+#nogl{position:absolute; inset:0; overflow-y:auto; padding:16px; box-sizing:border-box; background:var(--surface); display:flex; flex-direction:column; gap:12px; z-index:7}
+#nogl[hidden]{display:none}
+.nogl-msg{background:var(--accent-soft); border:1px solid var(--accent); border-radius:10px; padding:12px 14px; font-size:13.5px}
+.nogl-msg b{font-size:15px}
+.nogl-msg p,.nogl-msg ol{margin:6px 0}
+.nogl-msg ol{padding-inline-start:20px}
+.nogl-fig{margin:0}
+.nogl-fig img{display:block; width:100%; height:auto; border-radius:10px; border:1px solid var(--line)}
+.nogl-fig figcaption{font-size:12.5px; color:var(--muted); margin-top:6px}
+#stage[data-nogl="true"] canvas,#stage[data-nogl="true"] .ov{display:none!important}
+body.nogl #rail .card:not(.keep){display:none}
 #stage[data-walk="true"] canvas{cursor:grab}
 /* labels */
 .lbl{font-family:var(--font-body); font-size:12px; font-weight:600; color:#1b221e; background:rgba(250,251,248,.88); border:1px solid rgba(0,0,0,.12); border-radius:6px; padding:2px 7px; white-space:nowrap; direction:rtl}
@@ -225,6 +236,11 @@ a{color:var(--accent)}
           <button type="button" data-base="rec" aria-pressed="false"><span>המלצה: 1 + 2 + 3</span></button>
         </div>
         <p class="walk-hint" id="baseInfo" hidden></p>
+        <div class="views" id="baseViews" hidden style="margin-top:8px">
+          <button class="chip" type="button" data-bview="base">מבט מלמעלה</button>
+          <button class="chip" type="button" data-bview="baseSide">מבט מהצד</button>
+        </div>
+        <p class="walk-hint">אפשר לשלב כל שימוש במרתף עם כל אחד מהמצבים ב״מה מציגים״.</p>
       </div>
       <div class="card">
         <h3>מבטים</h3>
@@ -274,6 +290,19 @@ a{color:var(--accent)}
       </div>
       <div class="ov" id="note">הדמיה עקרונית מנתוני GIS של העירייה ו-Street View. אינה מדידה ואינה תכנון אדריכלי.</div>
       <div class="ov" id="tip"></div>
+      <div id="nogl" hidden>
+        <div class="nogl-msg">
+          <b>התצוגה התלת-ממדית לא נטענה במחשב הזה</b>
+          <p>הדפדפן חוסם גרפיקה תלת-ממדית (WebGL). ב-Windows זה קורה בדרך כלל כשהאצת החומרה בכרום כבויה, או כשמנהל ההתקן של כרטיס המסך ישן.</p>
+          <ol>
+            <li>בכרום: תפריט ⋮ ← הגדרות ← מערכת ← להפעיל את ״שימוש בהאצת גרפיקה כשהיא זמינה״, וללחוץ על ״הפעלה מחדש״.</li>
+            <li>אם זה לא עוזר: לעדכן את מנהל ההתקן של כרטיס המסך דרך Windows Update, או לפתוח את הקישור ב-Microsoft Edge.</li>
+          </ol>
+          <p class="small">בינתיים אפשר לראות כאן תמונות של המבטים העיקריים. הזכויות, החלופות והתכנית העסקית עובדים כרגיל מהכפתורים למעלה.</p>
+        </div>
+        <div class="views" id="noglViews"></div>
+        <figure class="nogl-fig"><img id="noglImg" alt=""><figcaption id="noglCap"></figcaption></figure>
+      </div>
       <div class="ov" id="walkbar" data-on="false" aria-label="שליטה בהליכה">
         <div class="where" id="walkWhere">—</div>
         <div class="pad">
@@ -386,6 +415,40 @@ a{color:var(--accent)}
 <script src="vendor/CSS2DRenderer.js"></script>
 <script src="data/gis.js"></script>
 <script>
+// Fallback for machines without WebGL: still images of the main views, and the report drawer still works.
+window.noWebGL = function(err){
+  'use strict';
+  const stage = document.getElementById('stage'), box = document.getElementById('nogl');
+  stage.dataset.nogl = 'true'; box.hidden = false; document.body.classList.add('nogl');
+  document.getElementById('rail').hidden = true; document.getElementById('railToggle').hidden = true;
+  const STILLS = [
+    ['1-existing', 'מצב קיים', 'מבנה השימור בן קומה אחת על שתי החלקות.'],
+    ['2-altC', 'שימור + תוספת', 'קומה חדשה בנסיגה ועליית גג ברעפי חרס, כ-420 מ״ר.'],
+    ['3-envelope', 'מעטפת הזכויות', 'הנפח המקסימלי לפי תכנית 3866: כ-993 מ״ר מעל הקרקע, רכס עד כ-13.1 מ׳.'],
+    ['4-mixA', 'תמהיל א׳', 'מסחר בחלקה 47, שתי דירות גן בחלקה 48, ו-6 דירות מעל. 8 דירות.'],
+    ['5-mixB', 'תמהיל ב׳', 'מסחר בשתי החלקות ו-6 דירות מעל.'],
+    ['6-basement', 'שימור + תוספת עם מרתף', 'ההמלצה למרתף: הרחבת המסחר, מחסנים וקומה תחתונה לדירות הגן.'],
+    ['7-shabazi', 'מרחוב שבזי', 'מבט בגובה עיניים מהמדרכה ממול.'],
+    ['8-ahad', 'מרחוב אחד העם', 'מבט בגובה עיניים מהמדרכה ממול.']
+  ];
+  const views = document.getElementById('noglViews'), img = document.getElementById('noglImg'), cap = document.getElementById('noglCap');
+  function show(i){
+    img.src = 'assets/stills/' + STILLS[i][0] + '.jpg'; img.alt = STILLS[i][1]; cap.textContent = STILLS[i][1] + ': ' + STILLS[i][2];
+    views.querySelectorAll('.chip').forEach((c, j) => c.classList.toggle('on', j === i));
+  }
+  STILLS.forEach((s, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = s[1]; b.addEventListener('click', () => show(i)); views.appendChild(b); });
+  show(0);
+  const drawer = document.getElementById('drawer');
+  function openTab(t){ drawer.hidden = false; document.querySelectorAll('.tabs [role=tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t))); document.querySelectorAll('.pane').forEach(p => p.hidden = p.dataset.pane !== t); }
+  document.querySelectorAll('.tabs [role=tab]').forEach(b => b.addEventListener('click', () => openTab(b.dataset.tab)));
+  document.getElementById('openRights').addEventListener('click', () => openTab('rights'));
+  document.getElementById('openAlts').addEventListener('click', () => openTab('alts'));
+  document.getElementById('closeDrawer').addEventListener('click', () => { drawer.hidden = true; });
+  if (location.hash === '#rights') openTab('rights'); else if (location.hash === '#alts') openTab('alts');
+  if (window.console) console.warn('3D view unavailable:', err && err.message);
+};
+</script>
+<script>
 const GIS = window.GIS;
 (function(){
 'use strict';
@@ -405,7 +468,11 @@ function centroid(r){ let x = 0, y = 0; r.forEach(p => { x += p[0]; y += p[1]; }
 // ---------- renderer / scene ----------
 const stage = document.getElementById('stage');
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+let renderer;
+try {
+  if (!window.THREE || !window.GIS) throw new Error('missing scripts');
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+} catch (err) { window.noWebGL(err); return; }   // no 3D on this machine: show stills and keep the report working
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -917,31 +984,46 @@ const MODE_TEXT = {
 const isMix = () => state.mode === 'mixA' || state.mode === 'mixB';
 const baseOn = () => state.base !== 'none';
 function applyMode(){
-  // a basement use is shown on its own: the building is cut down and the volumes above ground are hidden
-  blockAdd.visible = state.mode === 'altC' && !baseOn();
-  MIX.mixA.visible = state.mode === 'mixA' && !baseOn(); MIX.mixB.visible = state.mode === 'mixB' && !baseOn();
+  // a basement use is shown together with whatever is shown above ground
+  blockAdd.visible = state.mode === 'altC';
+  MIX.mixA.visible = state.mode === 'mixA'; MIX.mixB.visible = state.mode === 'mixB';
   document.querySelectorAll('#legend .mixleg').forEach((d, i) => { d.hidden = !isMix() || (i === 1 && state.mode !== 'mixA'); });
   parcelLbl.visible = state.mode === 'existing' && !state.cut && !baseOn();
-  G.envelope.visible = blockEnv.visible = state.mode === 'envelope' && !baseOn();
+  G.envelope.visible = blockEnv.visible = state.mode === 'envelope';
   document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode)));
   const bt = baseOn() ? document.querySelector('#baseOpts [data-base="' + state.base + '"] span').textContent : null;
-  document.getElementById('modeTitle').textContent = bt ? 'מרתף · ' + bt : MODE_TEXT[state.mode][0];
+  document.getElementById('modeTitle').textContent = MODE_TEXT[state.mode][0] + (bt ? ' + מרתף: ' + bt.replace(/^\d\.\s*/, '') : '');
   document.getElementById('modeText').textContent = bt ? BASE_INFO[state.base] : MODE_TEXT[state.mode][1];
   setCut(state.cut);
+  if (typeof ghostify === 'function') ghostify();
 }
 function setCut(on){
   state.cut = on;
-  const low = on || isMix() || baseOn();          // unit mixes and basement uses are drawn with the ground floor cut down
+  const low = on || isMix();                       // unit mixes are drawn with the ground floor cut down
   walls.forEach(w => { w.scale.y = low ? CUT_H : WALL_H; w.material = low ? wallMatsCut : wallMatsFull; });
   upper.forEach(u => u.visible = !low);
   G.roofs.visible = !low; blockRoof.visible = !low && state.mode !== 'altC';
   blockInt.visible = G.interior.visible = on && !isMix() && !baseOn();
   parcelLbl.visible = state.mode === 'existing' && !on && !baseOn();
-  if (on && state.mode === 'altC') blockAdd.visible = false; else if (state.mode === 'altC') blockAdd.visible = !baseOn();
+  if (on && state.mode === 'altC') blockAdd.visible = false; else if (state.mode === 'altC') blockAdd.visible = true;
 }
 const chk = id => document.getElementById(id).checked;
+// while a basement use is shown, the building above ground turns see-through so both read together
+const GHOST = new Map(), UNGHOST = new Map();
+function ghostMat(m){
+  if (Array.isArray(m)) return m.map(ghostMat);
+  if (UNGHOST.has(m)) return m;
+  let g = GHOST.get(m);
+  if (!g){ g = m.clone(); g.transparent = true; g.opacity = Math.min(m.opacity === undefined ? 1 : m.opacity, 0.25); g.depthWrite = false; GHOST.set(m, g); UNGHOST.set(g, m); }
+  return g;
+}
+const unghostMat = m => Array.isArray(m) ? m.map(unghostMat) : (UNGHOST.get(m) || m);
+function ghostify(){
+  const on = baseOn();
+  [G.facade, G.roofs, G.bldg, blockRoof, blockAdd].forEach(gr => gr.traverse(o => { if (o.isMesh) o.material = on ? ghostMat(o.material) : unghostMat(o.material); }));
+}
 function bind(id, fn){ const el = document.getElementById(id); el.addEventListener('change', () => fn(el.checked)); fn(el.checked); }
-bind('L_cut', v => { setCut(v); });
+bind('L_cut', v => { setCut(v); ghostify(); });
 bind('L_parcels', v => { G.parcels.visible = v; });
 bind('L_pres', v => { G.pres.visible = v && !chk('L_solo') && chk('L_nb'); pickables.forEach(m => { if (m.userData.kind === 'nb' && m.userData.pres) m.material[1] = v ? MAT.nbWallPres : MAT.nbWall; }); });
 function context(){
@@ -969,10 +1051,12 @@ function setBase(k){
   document.querySelectorAll('#baseOpts button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.base === k)));
   const info = document.getElementById('baseInfo'); info.textContent = BASE_INFO[k]; info.hidden = !BASE_INFO[k];
   groundSee(); applyMode();
+  document.getElementById('baseViews').hidden = !baseOn();
   if (baseOn() && !walk.on) fly('base');
 }
 document.querySelectorAll('#baseOpts button').forEach(b => b.addEventListener('click', () => setBase(b.dataset.base)));
-document.querySelectorAll('#modes button').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; if (baseOn()) setBase('none'); else applyMode(); }));
+document.querySelectorAll('#baseViews .chip').forEach(c => c.addEventListener('click', () => { if (walk.on) exitWalk(false); fly(c.dataset.bview); }));
+document.querySelectorAll('#modes button').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; applyMode(); }));
 applyMode(); blockInt.visible = G.interior.visible = false;
 
 // CSS2D labels inherit visibility only from their own flag; hide labels of hidden parents each frame
@@ -987,7 +1071,8 @@ const V = {
   ahad: { uv: [-3.5, 17.8], h: 1.7, t: [-3.5, 3.0, 9.5], fov: 74 },
   corner: { uv: [21, -15], h: 1.7, t: [9, 3.4, -8], fov: 60 },
   top: { p: [0.01, 105, 0.01], t: [0, 0, 0] },
-  base: { p: [-16, 48, 18], t: [0.5, -3, 0] }
+  base: { p: [-16, 48, 18], t: [0.5, -3, 0] },
+  baseSide: { uv: [-27, -25], h: 13, t: [0, -1.5, 0], fov: 46 }
 };
 function viewPos(k){
   const v = V[k];
